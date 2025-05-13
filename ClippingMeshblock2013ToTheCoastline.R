@@ -48,7 +48,12 @@ ggplot(nz_coastline) + geom_sf() # shows the nz coastline
 nz_coastline_akld <- st_intersection(nz_coastline, st_transform(akld_buffer, "EPSG:2193"))
 
 ggplot(nz_coastline_akld) + geom_sf()
-
+# I've realised looking at that that there are a few issues during the 
+# intersection with the meshblock data
+# treatment of small offshore islands, treatment of lakes, and if I use
+# the clipped nz_coastline around the cities then parts of the coastline
+# are open/unbounded. Obviously a lot more going on with the clipping 
+# process on a coastline than I had originally thought.
 ggplot(mb2013_clipped) + geom_sf()
 
 # no point in doing this part yet!
