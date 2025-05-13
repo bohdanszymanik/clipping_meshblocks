@@ -30,18 +30,6 @@ ggplot(mb2013_akld) + geom_sf()
 ggplot(mb2013_wgtn) + geom_sf()
 ggplot(mb2013_chch) + geom_sf()
 
-akld_buffer <- st_buffer(akld_centre, dist=radius)
-wgtn_buffer <- st_buffer(wgtn_centre, dist=radius)
-chch_buffer <- st_buffer(chch_centre, dist=radius)
-
-mb2013_akld_clipped <- st_intersection(mb2013_clipped, akld_buffer)
-mb2013_wgtn_clipped <- st_intersection(mb2013_clipped, wgtn_buffer)
-mb2013_chch_clipped <- st_intersection(mb2013_clipped, chch_buffer)
-
-ggplot(mb2013_akld_clipped) + geom_sf()
-ggplot(mb2013_wgtn_clipped) + geom_sf()
-ggplot(mb2013_chch_clipped) + geom_sf()
-
 
 # now let's clip these to the coastline
 
@@ -51,10 +39,15 @@ st_crs(mb2013) # EPSG:2193 = NZTM/NZCD2000
 st_crs(nz_coastline) # EPSG:2193 = NZTM/NZCD2000
 
 # this should work... but it doesn't
-mb2013_clipped <- st_intersection(mb2013, x = nz_coastline)
+mb2013_akld_clipped1 <- st_intersection(mb2013_akld_clipped, x = nz_coastline)
 
-ggplot(mb2013) + geom_sf() # shows the original 2013 meshblocks reaching out into the sea
+ggplot(mb2013_akld_clipped1) + geom_sf() # shows the original 2013 meshblocks reaching out into the sea
 ggplot(nz_coastline) + geom_sf() # shows the nz coastline
+
+
+nz_coastline_akld <- st_intersection(nz_coastline, st_transform(akld_buffer, "EPSG:2193"))
+
+ggplot(nz_coastline_akld) + geom_sf()
 
 ggplot(mb2013_clipped) + geom_sf()
 
