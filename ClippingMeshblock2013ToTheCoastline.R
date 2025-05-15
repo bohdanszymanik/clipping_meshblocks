@@ -1,11 +1,30 @@
 library(sf)
 library(dplyr)
 library(ggplot2)
+library(glue)
 
+# While trying to figure out what is going on with attempting to intersect
+# meshblock 2013 to the nz coastline I ended up also doing it in ArcGIS Pro
+# what was interesting was how much fast ArcGIS Pro was on the same hardware - couple
+# few seconds cf many minutes
 
+# load up the meshblocks 2013 polygon boundaries
 mb2013 <- st_read("statsnz-meshblock-boundaries-2013-SHP\\meshblock-boundaries-2013.shp")
+ggplot(mb2013) + geom_sf() # plot and you can see how the meshblock boundaries extend beyond the shoreline
 
-# first, let's chop up into 3 regions surrounding akld, wgtn, chch
+# now let's load up a polygon map of the new shoreline
+nz_shoreline <- st_read("lds-nz-coastlines-and-islands-polygons-topo-150k-SHP\\nz-coastlines-and-islands-polygons-topo-150k.shp")
+ggplot(nz_shoreline) + geom_sf()
+
+# and clip the meshblocks to the shoreline - this takes a long time
+# it works a lot quicker if you cut down the shoreline dataset to a region first
+# - use a similar approach to the lines further down that create a circular
+# buffer around a point
+clipped_meshblocks_shoreline <- st_intersection(mb2013, st_transform(nz_shoreline, st_crs(mb2013)))
+ggplot(clipped_meshblocks_shoreline) + geom_sf()
+
+
+# let's chop up our meshblocks into 3 regions surrounding akld, wgtn, chch
 # Auckland is centred on -36.8402, 174.7791
 # Wellington is centred on -41.1941, 174.9282
 # Christchurch centred on -43.5110, 172.5995
@@ -32,36 +51,42 @@ ggplot(mb2013_chch) + geom_sf()
 
 
 # now let's clip these to the coastline
+akld_clipped_mbs <- st_intersection(mb2013_akld, st_transform(clipped_meshblocks_shoreline, st_crs(mb2013_akld)))
+ggplot(akld_clipped_mbs) + geom_sf() # works but there are are some funny looking bits across the 
 
-nz_coastline <- st_transform(st_read("lds-nz-coastline-mean-high-water-SHP\\nz-coastline-mean-high-water.shp"), st_crs(mb2013))
+wgtn_clipped_mbs <- st_intersection(mb2013_wgtn, st_transform(clipped_meshblocks_shoreline, st_crs(mb2013_wgtn)))
+ggplot(wgtn_clipped_mbs) + geom_sf()
 
-st_crs(mb2013) # EPSG:2193 = NZTM/NZCD2000
-st_crs(nz_coastline) # EPSG:2193 = NZTM/NZCD2000
-
-# this should work... but it doesn't
-mb2013_akld_clipped1 <- st_intersection(mb2013_akld_clipped, x = nz_coastline)
-
-ggplot(mb2013_akld_clipped1) + geom_sf() # shows the original 2013 meshblocks reaching out into the sea
-ggplot(nz_coastline) + geom_sf() # shows the nz coastline
+chch_clipped_mbs <- st_intersection(mb2013_chch, st_transform(clipped_meshblocks_shoreline, st_crs(mb2013_chch)))
+ggplot(chch_clipped_mbs) + geom_sf()
 
 
-nz_coastline_akld <- st_intersection(nz_coastline, st_transform(akld_buffer, "EPSG:2193"))
+# and let's write out to shapefiles
+# function to create folder and write out shp files, checks folder existence first
+write_shp <- function(feature_layer) {
+  feature_layer_name <- deparse(substitute(feature_layer))
+  if (!dir.exists(feature_layer_name)) {dir.create(feature_layer_name)}
+  st_write(feature_layer, glue("{feature_layer_name}/{feature_layer_name}.shp"))
+}
 
-ggplot(nz_coastline_akld) + geom_sf()
-# I've realised looking at that that there are a few issues during the 
-# intersection with the meshblock data
-# treatment of small offshore islands, treatment of lakes, and if I use
-# the clipped nz_coastline around the cities then parts of the coastline
-# are open/unbounded. Obviously a lot more going on with the clipping 
-# process on a coastline than I had originally thought.
-ggplot(mb2013_clipped) + geom_sf()
+write_shp(akld_clipped_mbs)
+write_shp(wgtn_clipped_mbs)
+write_shp(chch_clipped_mbs)
 
-# no point in doing this part yet!
-st_write(mb2013_clipped, "mb2013_clipped.shp")
+# alternatively...
+st_write(clipped_meshblocks_shoreline, "clipped_meshblocks_shoreline.shp")
+st_write(akld_clipped_mbs, "akld_clipped_mbs.shp")
+st_write(wgtn_clipped_mbs, "wgtn_clipped_mbs.shp")
+st_write(chch_clipped_mbs, "chch_clipped_mbs.shp")
 
 
+# just to check the alternative approach - might be better performance
+# upfront clip both the full coastline and meshblock feature layers to a small region
+# and only then do the intersection
+# much, much faster
+clipped_meshblocks_shoreline_akld <- st_intersection(clipped_meshblocks_shoreline, st_transform(akld_buffer, "EPSG:2193"))
+akld_clipped_mbs2 <- st_intersection(mb2013_akld, st_transform(clipped_meshblocks_shoreline_akld, st_crs(mb2013_akld)))
+ggplot(akld_clipped_mbs2) + geom_sf()
+# hmmm, same odd dots as before
 
 
-
-
-mb2013_akld <- st_intersection(mb2013, akld_buffer)
